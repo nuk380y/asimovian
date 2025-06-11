@@ -1,11 +1,10 @@
 import os
 
+
 def get_files_info(working_directory, directory=None):
     directory = os.path.join(working_directory, directory)
 
     if not os.path.abspath(directory).startswith(os.path.abspath(working_directory)):
-        print(f"{os.path.abspath(working_directory)}")
-        print(f"{os.path.abspath(directory)}")
         return f'Error: Cannot list "{directory}" as it is outside the permitted working directory'
     elif not os.path.isdir(directory):
         return f'Error: "{directory}" is not a directory'
