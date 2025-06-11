@@ -2,18 +2,18 @@ import os
 
 
 def get_files_info(working_directory, directory=None):
-    directory = os.path.join(working_directory, directory)
+    fullpath = os.path.join(working_directory, directory)
 
-    if not os.path.abspath(directory).startswith(os.path.abspath(working_directory)):
+    if not os.path.abspath(fullpath).startswith(os.path.abspath(working_directory)):
         return f'Error: Cannot list "{directory}" as it is outside the permitted working directory'
-    elif not os.path.isdir(directory):
+    elif not os.path.isdir(fullpath):
         return f'Error: "{directory}" is not a directory'
     else:
-        sub_directories = os.listdir(os.path.abspath(directory))
+        sub_directories = os.listdir(os.path.abspath(fullpath))
         output = []
 
         for file in sub_directories:
-            file = os.path.join(directory, file)
+            file = os.path.join(fullpath, file)
             filename = os.path.basename(file)
             filesize = os.path.getsize(os.path.abspath(file))
             is_dir = os.path.isdir(os.path.abspath(file))
