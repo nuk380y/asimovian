@@ -2,39 +2,12 @@ import os
 import sys
 
 from dotenv import load_dotenv
+from functions.get_file_content import get_file_content
+from functions.get_files_info import get_files_info
+from functions.run_python_file import run_python_file
+from functions.write_file import write_file
 from google import genai
 from google.genai import types
-
-
-def call_function(function_call_part, verbose=False):
-    if verbose:
-        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
-    else:
-        print(f" - Calling function: {function_call_part.name}")
-
-    # Call function should go here...
-
-    if function_call_part.name not in functions:
-        return types.Content(
-            role="tool",
-            parts=[
-                types.Part.from_function_response(
-                    name=function_name,
-                    response={"error": f"Unknown function: {function_name}"},
-                )
-            ],
-        )
-
-    return types.Content(
-        role="tool",
-        parts=[
-            types.Part.from_function_response(
-                name=function_name,
-                response={"result": function_result},
-            )
-        ],
-    )
-
 
 system_prompt = """
 You are a helpful AI coding agent.
@@ -123,6 +96,49 @@ available_functions = types.Tool(
     ],
 )
 
+
+def call_function(function_call_part, verbose=False):
+    if verbose:
+        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
+    else:
+        print(f" - Calling function: {function_call_part.name}")
+
+    # Call function should go here...
+    allowed_functions = {
+        "get_files_info": get_files_info,
+        "get_file_content": get_file_content,
+        "write_file": write_file,
+        "run_python_file": run_python_file,
+    }
+    actual_function = ""
+    result = ""
+
+    if function_call_part.name not in allowed_functions:
+        return types.Content(
+            role="tool",
+            parts=[
+                types.Part.from_function_response(
+                    name=function_call_part.name,
+                    response={"error": f"Unknown function: {function_call_part.name}"},
+                )
+            ],
+        )
+    else:
+        actual_function = allowed_functions[function_call_part.name]
+        function_call_part.args.update({"working_directory": "./calculator"})
+        result = actual_function(**function_call_part.args)
+
+    return types.Content(
+        role="tool",
+        parts=[
+            types.Part.from_function_response(
+                name=function_call_part.name,
+                response={"result": result},
+            )
+        ],
+    )
+
+
 load_dotenv()
 api_key = os.environ.get("GEMINI_API_KEY")
 verbose = False
@@ -166,7 +182,13 @@ else:
 
 if funcs:
     for call in funcs:
-        print(f"Calling function: {call.name}({call.args})")
+        generates_content = call_function(call, verbose)
+
+        try:
+            if verbose:
+                print(f"-> {generates_content.parts[0].function_response.response['result']}")
+        except:
+            raise Exception("no function response presented")
 
 if verbose:
     print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
