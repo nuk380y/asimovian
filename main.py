@@ -12,13 +12,16 @@ When a user asks a question or makes a request, make a function call plan. You
 can perform the following operations:
 
 - List files and directories
+- Read file contents
+- Execute Python files with optional arguments
+- Write or overwrite files
 
 All paths you provide should be relative to teh working directory.  You do not
 need to specify the working directory in your function calls as it is
 automatically injected for security reasons.
 """
 
-# Describe the available function.
+# Describe the available functions.
 schema_get_files_info = types.FunctionDeclaration(
     name="get_files_info",
     description="Lists in the specified directory along with their sizes, constrained to the working directory.",
@@ -33,11 +36,60 @@ schema_get_files_info = types.FunctionDeclaration(
     ),
 )
 
+schema_get_file_content = types.FunctionDeclaration(
+    name="get_file_content",
+    description="Read the contents of a specified file, constrained to the working directory.",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "file_path": types.Schema(
+                type=types.Type.STRING,
+                description="The path to list files from, relative to the working directory.",
+            ),
+        },
+    ),
+)
+
+schema_run_python_file = types.FunctionDeclaration(
+    name="run_python_file",
+    description="Run a specified Python script, constrained to the working directory.",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "file_path": types.Schema(
+                type=types.Type.STRING,
+                description="The path to Python script to run, relative to the working directory. STDOUT and STDERR will both be output to the terminal. If exit-code is non-zero, it also will be output to the terminal.",
+            ),
+        },
+    ),
+)
+
+schema_write_file = types.FunctionDeclaration(
+    name="write_file",
+    description="Read the contents of a specified file, constrained to the working directory.",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "file_path": types.Schema(
+                type=types.Type.STRING,
+                description="The path to the file to be written, relative to the working directory. If file already exists, contents will be overwritten.",
+            ),
+            "content": types.Schema(
+                type=types.Type.STRING,
+                description="The content to be written to the file.",
+            ),
+        },
+    ),
+)
+
 # Define the described functions as tools available to the LLM.
 available_functions = types.Tool(
     function_declarations=[
         schema_get_files_info,
-    ]
+        schema_get_file_content,
+        schema_run_python_file,
+        schema_write_file,
+    ],
 )
 
 load_dotenv()
@@ -66,8 +118,7 @@ response = client.models.generate_content(
     model="gemini-2.0-flash-001",
     contents=messages,
     config=types.GenerateContentConfig(
-        tools=[available_functions],
-        system_instruction=system_prompt
+        tools=[available_functions], system_instruction=system_prompt
     ),
 )
 
