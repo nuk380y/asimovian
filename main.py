@@ -2,12 +2,13 @@ import os
 import sys
 
 from dotenv import load_dotenv
+from google import genai
+from google.genai import types
+
 from functions.get_file_content import get_file_content
 from functions.get_files_info import get_files_info
 from functions.run_python_file import run_python_file
 from functions.write_file import write_file
-from google import genai
-from google.genai import types
 
 system_prompt = """
 You are a helpful AI coding agent.
@@ -103,7 +104,6 @@ def call_function(function_call_part, verbose=False):
     else:
         print(f" - Calling function: {function_call_part.name}")
 
-    # Call function should go here...
     allowed_functions = {
         "get_files_info": get_files_info,
         "get_file_content": get_file_content,
@@ -153,42 +153,59 @@ elif len(sys.argv) >= 3:
         raise Exception(f"{sys.argv[-1]}: not recognized")
 
 user_prompt = sys.argv[1]
-
 messages = [
     types.Content(role="user", parts=[types.Part(text=user_prompt)]),
 ]
-
-# Define Generative AI (genai) client with locally stored API key
-client = genai.Client(api_key=api_key)
-# Create variable to receive response from specified LLM
-response = client.models.generate_content(
-    model="gemini-2.0-flash-001",
-    contents=messages,
-    config=types.GenerateContentConfig(
-        tools=[available_functions], system_instruction=system_prompt
-    ),
-)
-
-funcs = response.function_calls
-
 if verbose:
     print(f"User prompt: {user_prompt}\n")
 
-# Print the text of the response...
-if response.text != None:
-    print(f"{response.text}")
-else:
-    print("")
+# Define Generative AI (genai) client with locally stored API key
+client = genai.Client(api_key=api_key)
 
-if funcs:
-    for call in funcs:
-        generates_content = call_function(call, verbose)
+for count in range(0, 19):
+    func_called = False
+    response = client.models.generate_content(
+        model="gemini-2.0-flash-001",
+        contents=messages,
+        config=types.GenerateContentConfig(
+            tools=[available_functions], system_instruction=system_prompt
+        ),
+    )
 
-        try:
-            if verbose:
-                print(f"-> {generates_content.parts[0].function_response.response['result']}")
-        except:
-            raise Exception("no function response presented")
+    for candidate in response.candidates:
+        messages.append(candidate.content)
+
+        for part in candidate.content.parts:
+            if part.function_call:
+                function_result = call_function(part.function_call, verbose)
+                messages.append(function_result)
+                func_called = True
+
+    if not func_called:
+        final_text = response.text
+        if final_text:
+            print("Final response:")
+            print(final_text)
+            break
+
+## I think the loop structure above nullifies this commented block...
+# funcs = response.function_calls
+#
+# # Print the text of the response...
+# if response.text != None:
+#     print(f"{response.text}")
+# else:
+#     print("")
+#
+# if funcs:
+#     for call in funcs:
+#         generates_content = call_function(call, verbose)
+#
+#         try:
+#             if verbose:
+#                 print(f"-> {generates_content.parts[0].function_response.response['result']}")
+#         except:
+#             raise Exception("no function response presented")
 
 if verbose:
     print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
